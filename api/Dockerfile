@@ -4,6 +4,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends stockfish \
     && rm -rf /var/lib/apt/lists/*
 
+# Debian installs stockfish under /usr/games.
+ENV PATH="/usr/games:${PATH}"
+
 WORKDIR /app
 
 COPY go.mod .

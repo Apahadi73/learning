@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -14,7 +16,12 @@ import (
 )
 
 func main() {
-	eng, err := engine.New("stockfish")
+	stockfishPath, err := resolveStockfishPath()
+	if err != nil {
+		log.Fatalf("failed to locate stockfish: %v", err)
+	}
+
+	eng, err := engine.New(stockfishPath)
 	if err != nil {
 		log.Fatalf("failed to initialize stockfish: %v", err)
 	}
@@ -47,4 +54,17 @@ func main() {
 	if err := server.Shutdown(ctx); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
+}
+
+func resolveStockfishPath() (string, error) {
+	if p, err := exec.LookPath("stockfish"); err == nil {
+		return p, nil
+	}
+
+	fallback := "/usr/games/stockfish"
+	if _, err := os.Stat(fallback); err == nil {
+		return fallback, nil
+	}
+
+	return "", fmt.Errorf("stockfish not found in PATH or at %s", fallback)
 }

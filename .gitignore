@@ -4,6 +4,7 @@
 # Node
 web/node_modules/
 web/dist/
+web/.pnpm-store/
 
 # Go
 api/bin/
@@ -11,3 +12,4 @@ api/bin/
 # IDE
 .vscode/
 .idea/
+

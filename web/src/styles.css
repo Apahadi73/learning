@@ -31,9 +31,25 @@ h1 {
   margin-top: 0;
 }
 
+.main-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 520px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
 .board-panel {
-  max-width: 520px;
-  margin-bottom: 16px;
+  width: 100%;
+}
+
+.side-panel {
+  min-width: 0;
+}
+
+.hint {
+  margin-top: 10px;
+  color: #4b5563;
+  font-size: 0.92rem;
 }
 
 .label {
@@ -93,4 +109,24 @@ button:disabled {
 .result {
   border-top: 1px solid #e5e7eb;
   padding-top: 14px;
+}
+
+.history {
+  margin-top: 14px;
+}
+
+.history-text {
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+@media (max-width: 900px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
 }
