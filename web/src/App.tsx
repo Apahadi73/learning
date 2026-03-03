@@ -142,6 +142,11 @@ export default function App() {
       <div className="container">
         <h1>Chess Position Analyzer</h1>
         <div className="main-grid">
+          <div className="history-panel result history">
+            <h2>Move History</h2>
+            {movePairs.length === 0 ? <p>No moves yet.</p> : <pre className="history-text">{movePairs.join('\n')}</pre>}
+          </div>
+
           <div className="board-panel">
             <Chessboard
               id="main-board"
@@ -208,15 +213,6 @@ export default function App() {
                 </p>
               </div>
             )}
-
-            <div className="result history">
-              <h2>Move History</h2>
-              {movePairs.length === 0 ? (
-                <p>No moves yet.</p>
-              ) : (
-                <pre className="history-text">{movePairs.join('\n')}</pre>
-              )}
-            </div>
           </div>
         </div>
       </div>

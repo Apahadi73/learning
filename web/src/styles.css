@@ -19,7 +19,7 @@ body {
 }
 
 .container {
-  max-width: 880px;
+  max-width: 1320px;
   margin: 0 auto;
   background: #ffffff;
   border-radius: 12px;
@@ -33,9 +33,13 @@ h1 {
 
 .main-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 520px) 1fr;
+  grid-template-columns: 260px minmax(320px, 520px) 1fr;
   gap: 20px;
   align-items: start;
+}
+
+.history-panel {
+  margin-top: 0;
 }
 
 .board-panel {
@@ -111,22 +115,22 @@ button:disabled {
   padding-top: 14px;
 }
 
-.history {
-  margin-top: 14px;
-}
-
 .history-text {
   margin: 0;
   padding: 0;
-  max-height: 220px;
+  max-height: 560px;
   overflow: auto;
   white-space: pre-wrap;
   line-height: 1.5;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
   .main-grid {
     grid-template-columns: 1fr;
+  }
+
+  .history-text {
+    max-height: 240px;
   }
 }
