@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { analyzePosition, type AnalyzeResponse } from './api'
@@ -30,6 +30,68 @@ export default function App() {
     }
     return lines
   }, [game])
+  const checkmateMessage = useMemo(() => {
+    if (!game.isCheckmate()) {
+      return null
+    }
+
+    const winner = game.turn() === 'w' ? 'Black' : 'White'
+    return `Checkmate. ${winner} wins.`
+  }, [game])
+  const kingSquareForColor = (color: 'w' | 'b') => {
+    const board = game.board()
+    for (let rankIdx = 0; rankIdx < board.length; rankIdx++) {
+      for (let fileIdx = 0; fileIdx < board[rankIdx].length; fileIdx++) {
+        const piece = board[rankIdx][fileIdx]
+        if (piece && piece.type === 'k' && piece.color === color) {
+          const file = String.fromCharCode('a'.charCodeAt(0) + fileIdx)
+          const rank = String(8 - rankIdx)
+          return `${file}${rank}`
+        }
+      }
+    }
+
+    return null
+  }
+  const checkedKingSquare = useMemo(() => {
+    if (!game.isCheck()) {
+      return null
+    }
+    return kingSquareForColor(game.turn())
+  }, [game])
+  const matedKingSquare = useMemo(() => {
+    if (!game.isCheckmate()) {
+      return null
+    }
+    return kingSquareForColor(game.turn())
+  }, [game])
+  const customSquareStyles = useMemo(() => {
+    const styles: Record<string, CSSProperties> = {}
+
+    if (selectedSquare) {
+      styles[selectedSquare] = {
+        boxShadow: 'inset 0 0 0 4px rgba(37, 99, 235, 0.95)',
+      }
+    }
+
+    if (checkedKingSquare) {
+      styles[checkedKingSquare] = {
+        ...(styles[checkedKingSquare] || {}),
+        backgroundColor: 'rgba(245, 158, 11, 0.45)',
+        boxShadow: 'inset 0 0 0 4px rgba(217, 119, 6, 0.95)',
+      }
+    }
+
+    if (matedKingSquare) {
+      styles[matedKingSquare] = {
+        ...(styles[matedKingSquare] || {}),
+        backgroundColor: 'rgba(220, 38, 38, 0.55)',
+        boxShadow: 'inset 0 0 0 4px rgba(185, 28, 28, 0.95)',
+      }
+    }
+
+    return styles
+  }, [selectedSquare, checkedKingSquare, matedKingSquare])
 
   const updateGame = (next: Chess) => {
     setGame(next)
@@ -148,20 +210,13 @@ export default function App() {
           </div>
 
           <div className="board-panel">
+            {checkmateMessage && <p className="checkmate-banner">{checkmateMessage}</p>}
             <Chessboard
               id="main-board"
               position={boardPosition}
               onPieceDrop={onDrop}
               onSquareClick={onSquareClick}
-              customSquareStyles={
-                selectedSquare
-                  ? {
-                      [selectedSquare]: {
-                        boxShadow: 'inset 0 0 0 4px rgba(37, 99, 235, 0.95)',
-                      },
-                    }
-                  : {}
-              }
+              customSquareStyles={customSquareStyles}
             />
             <p className="hint">You can drag pieces or click a piece, then click a destination square.</p>
           </div>
