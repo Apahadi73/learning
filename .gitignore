@@ -1,0 +1,13 @@
+# OS
+.DS_Store
+
+# Node
+web/node_modules/
+web/dist/
+
+# Go
+api/bin/
+
+# IDE
+.vscode/
+.idea/
