@@ -9,9 +9,17 @@ type Move = {
   promotion?: string
 }
 
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const
+const PIECE_CODES = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'] as const
+
+type PieceCode = (typeof PIECE_CODES)[number]
+type TurnColor = 'w' | 'b'
+type BoardPosition = Record<string, string>
+
 export default function App() {
   const [game, setGame] = useState(() => new Chess())
   const [fen, setFen] = useState(game.fen())
+  const [fenInput, setFenInput] = useState(game.fen())
   const [boardSize, setBoardSize] = useState(680)
   const [boardMaxSize, setBoardMaxSize] = useState(520)
   const [depth, setDepth] = useState(12)
@@ -19,9 +27,14 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AnalyzeResponse | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editorPosition, setEditorPosition] = useState<BoardPosition>({})
+  const [editorTurn, setEditorTurn] = useState<TurnColor>('w')
+  const [editorPiece, setEditorPiece] = useState<PieceCode | 'erase'>('wP')
   const boardShellRef = useRef<HTMLDivElement | null>(null)
 
   const boardPosition = useMemo(() => fen, [fen])
+  const displayPosition = useMemo(() => (editMode ? editorPosition : boardPosition), [editMode, editorPosition, boardPosition])
   const boardSliderMax = useMemo(() => Math.max(320, Math.min(920, boardMaxSize)), [boardMaxSize])
   const effectiveBoardSize = useMemo(() => Math.min(boardSize, boardSliderMax), [boardSize, boardSliderMax])
   const movePairs = useMemo(() => {
@@ -123,7 +136,13 @@ export default function App() {
 
   const updateGame = (next: Chess) => {
     setGame(next)
-    setFen(next.fen())
+    const nextFen = next.fen()
+    setFen(nextFen)
+    setFenInput(nextFen)
+    if (!editMode) {
+      setEditorPosition(positionFromGame(next))
+      setEditorTurn(next.turn())
+    }
   }
 
   const cloneGame = (current: Chess) => {
@@ -136,6 +155,50 @@ export default function App() {
 
     next.load(current.fen())
     return next
+  }
+
+  const positionFromGame = (current: Chess): BoardPosition => {
+    const out: BoardPosition = {}
+    const board = current.board()
+    for (let rankIdx = 0; rankIdx < board.length; rankIdx++) {
+      for (let fileIdx = 0; fileIdx < board[rankIdx].length; fileIdx++) {
+        const piece = board[rankIdx][fileIdx]
+        if (!piece) {
+          continue
+        }
+        const square = `${FILES[fileIdx]}${8 - rankIdx}`
+        out[square] = `${piece.color}${piece.type.toUpperCase()}`
+      }
+    }
+    return out
+  }
+
+  const positionToFEN = (position: BoardPosition, turn: TurnColor) => {
+    const ranks: string[] = []
+    for (let rank = 8; rank >= 1; rank--) {
+      let line = ''
+      let empties = 0
+      for (let fileIdx = 0; fileIdx < FILES.length; fileIdx++) {
+        const square = `${FILES[fileIdx]}${rank}`
+        const piece = position[square]
+        if (!piece) {
+          empties++
+          continue
+        }
+        if (empties > 0) {
+          line += String(empties)
+          empties = 0
+        }
+        const color = piece[0]
+        const type = piece[1]
+        line += color === 'w' ? type.toUpperCase() : type.toLowerCase()
+      }
+      if (empties > 0) {
+        line += String(empties)
+      }
+      ranks.push(line || '8')
+    }
+    return `${ranks.join('/')} ${turn} - - 0 1`
   }
 
   const tryMove = (sourceSquare: string, targetSquare: string) => {
@@ -157,12 +220,28 @@ export default function App() {
   }
 
   const onDrop = (sourceSquare: string, targetSquare: string) => {
+    if (editMode) {
+      return false
+    }
     const moved = tryMove(sourceSquare, targetSquare)
     setSelectedSquare(null)
     return moved
   }
 
   const onSquareClick = (square: string) => {
+    if (editMode) {
+      setEditorPosition((prev) => {
+        const next = { ...prev }
+        if (editorPiece === 'erase') {
+          delete next[square]
+          return next
+        }
+        next[square] = editorPiece
+        return next
+      })
+      return
+    }
+
     if (!selectedSquare) {
       const piece = game.get(square)
       if (!piece || piece.color !== game.turn()) {
@@ -227,6 +306,47 @@ export default function App() {
     }
   }
 
+  const onApplyFen = () => {
+    const next = new Chess()
+    try {
+      next.load(fenInput.trim())
+      updateGame(next)
+      setResult(null)
+      setError(null)
+      setSelectedSquare(null)
+    } catch {
+      setError('Invalid FEN. Please enter a valid FEN string.')
+    }
+  }
+
+  const onToggleEditMode = () => {
+    setEditMode((prev) => {
+      const nextMode = !prev
+      if (nextMode) {
+        setEditorPosition(positionFromGame(game))
+        setEditorTurn(game.turn())
+        setSelectedSquare(null)
+      }
+      return nextMode
+    })
+    setError(null)
+  }
+
+  const onApplySetup = () => {
+    const next = new Chess()
+    const fenFromEditor = positionToFEN(editorPosition, editorTurn)
+    try {
+      next.load(fenFromEditor)
+      updateGame(next)
+      setResult(null)
+      setError(null)
+      setSelectedSquare(null)
+      setEditMode(false)
+    } catch {
+      setError('Invalid setup. Ensure the board has a legal FEN (including valid king placement).')
+    }
+  }
+
   return (
     <div className="page">
       <div className="container">
@@ -242,21 +362,81 @@ export default function App() {
             <div className="board-shell" ref={boardShellRef}>
               <Chessboard
                 id="main-board"
-                position={boardPosition}
+                position={displayPosition}
                 boardWidth={effectiveBoardSize}
                 onPieceDrop={onDrop}
                 onSquareClick={onSquareClick}
                 customSquareStyles={customSquareStyles}
+                arePiecesDraggable={!editMode}
               />
             </div>
-            <p className="hint">You can drag pieces or click a piece, then click a destination square.</p>
+            <p className="hint">
+              {editMode
+                ? 'Editor mode: choose a piece, then click squares to place it. Use Erase to remove pieces.'
+                : 'You can drag pieces or click a piece, then click a destination square.'}
+            </p>
           </div>
 
           <div className="side-panel">
-            <label className="label" htmlFor="fen">
-              Current FEN
-            </label>
-            <textarea id="fen" readOnly value={fen} rows={3} />
+            <div className="result editor-panel">
+              <h2>Board Editor</h2>
+              <div className="editor-actions">
+                <button type="button" onClick={onToggleEditMode}>
+                  {editMode ? 'Exit Editor' : 'Enter Editor'}
+                </button>
+                {editMode && (
+                  <button type="button" onClick={onApplySetup}>
+                    Apply Setup
+                  </button>
+                )}
+              </div>
+              {editMode && (
+                <>
+                  <div className="editor-turn">
+                    <span>Side To Move</span>
+                    <select value={editorTurn} onChange={(e) => setEditorTurn(e.target.value as TurnColor)}>
+                      <option value="w">White</option>
+                      <option value="b">Black</option>
+                    </select>
+                  </div>
+                  <div className="piece-grid">
+                    {PIECE_CODES.map((piece) => (
+                      <button
+                        key={piece}
+                        type="button"
+                        className={editorPiece === piece ? 'piece-btn active' : 'piece-btn'}
+                        onClick={() => setEditorPiece(piece)}
+                      >
+                        {piece}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className={editorPiece === 'erase' ? 'piece-btn active' : 'piece-btn'}
+                      onClick={() => setEditorPiece('erase')}
+                    >
+                      Erase
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="fen-header">
+              <label className="label" htmlFor="fen">
+                Current FEN
+              </label>
+              <button type="button" onClick={onApplyFen}>
+                Apply FEN
+              </button>
+            </div>
+            <textarea
+              id="fen"
+              value={fenInput}
+              onChange={(e) => setFenInput(e.target.value)}
+              rows={3}
+              disabled={editMode}
+            />
 
             <div className="controls">
               <label htmlFor="board-size">Board Size</label>
