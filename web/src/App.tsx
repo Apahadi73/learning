@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { analyzePosition, type AnalyzeResponse } from './api'
@@ -12,13 +12,18 @@ type Move = {
 export default function App() {
   const [game, setGame] = useState(() => new Chess())
   const [fen, setFen] = useState(game.fen())
+  const [boardSize, setBoardSize] = useState(680)
+  const [boardMaxSize, setBoardMaxSize] = useState(520)
   const [depth, setDepth] = useState(12)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AnalyzeResponse | null>(null)
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null)
+  const boardShellRef = useRef<HTMLDivElement | null>(null)
 
   const boardPosition = useMemo(() => fen, [fen])
+  const boardSliderMax = useMemo(() => Math.max(320, Math.min(920, boardMaxSize)), [boardMaxSize])
+  const effectiveBoardSize = useMemo(() => Math.min(boardSize, boardSliderMax), [boardSize, boardSliderMax])
   const movePairs = useMemo(() => {
     const history = game.history()
     const lines: string[] = []
@@ -92,6 +97,29 @@ export default function App() {
 
     return styles
   }, [selectedSquare, checkedKingSquare, matedKingSquare])
+
+  useEffect(() => {
+    const node = boardShellRef.current
+    if (!node) {
+      return
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const width = Math.floor(entries[0]?.contentRect.width ?? 0)
+      if (width > 0) {
+        setBoardMaxSize(width)
+      }
+    })
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (boardSize > boardSliderMax) {
+      setBoardSize(boardSliderMax)
+    }
+  }, [boardSize, boardSliderMax])
 
   const updateGame = (next: Chess) => {
     setGame(next)
@@ -211,13 +239,16 @@ export default function App() {
 
           <div className="board-panel">
             {checkmateMessage && <p className="checkmate-banner">{checkmateMessage}</p>}
-            <Chessboard
-              id="main-board"
-              position={boardPosition}
-              onPieceDrop={onDrop}
-              onSquareClick={onSquareClick}
-              customSquareStyles={customSquareStyles}
-            />
+            <div className="board-shell" ref={boardShellRef}>
+              <Chessboard
+                id="main-board"
+                position={boardPosition}
+                boardWidth={effectiveBoardSize}
+                onPieceDrop={onDrop}
+                onSquareClick={onSquareClick}
+                customSquareStyles={customSquareStyles}
+              />
+            </div>
             <p className="hint">You can drag pieces or click a piece, then click a destination square.</p>
           </div>
 
@@ -228,6 +259,18 @@ export default function App() {
             <textarea id="fen" readOnly value={fen} rows={3} />
 
             <div className="controls">
+              <label htmlFor="board-size">Board Size</label>
+              <input
+                id="board-size"
+                type="range"
+                min={320}
+                max={boardSliderMax}
+                step={10}
+                value={boardSize}
+                onChange={(e) => setBoardSize(Number(e.target.value))}
+              />
+              <span className="value-chip">{effectiveBoardSize}px</span>
+
               <label htmlFor="depth">Depth</label>
               <input
                 id="depth"
