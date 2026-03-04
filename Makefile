@@ -1,3 +1,4 @@
+.DEFAULT_GOAL := up
 .PHONY: up down build rebuild logs ps restart clean
 
 up:
@@ -14,7 +15,7 @@ rebuild:
 	docker compose up --build
 
 logs:
-	docker compose logs -f
+	docker compose logs -f	
 
 ps:
 	docker compose ps
